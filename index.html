@@ -22,11 +22,26 @@
 
   <main>
     <section id="tab-board" class="tab active">
+      <div class="card scan-card">
+        <strong>📸 Ekran görüntüsünden aktar</strong>
+        <div class="muted" style="margin-top:4px">Kelimelik'te mevcut oyunun ekran görüntüsünü seç. Tahtadaki harfler ve elindeki taşlar otomatik okunur.</div>
+        <label class="scan-upload" style="margin-top:12px">
+          Ekran Görüntüsü Seç
+          <input id="screenshotInput" type="file" accept="image/*" />
+        </label>
+        <img id="scanPreview" class="scan-preview" alt="Seçilen ekran görüntüsü" />
+        <div class="scan-actions">
+          <button id="analyzeScreenshotBtn" class="primary big" disabled>Ekran Görüntüsünü Analiz Et</button>
+        </div>
+        <div id="scanStatus" class="scan-status">İlk olarak oyundan bir ekran görüntüsü seç.</div>
+        <div class="scan-note">İlk analizde Türkçe OCR verisi indirilebilir. Analizden sonra tahta açılır; yanlış okunan bir harf varsa kareye dokunup düzeltebilirsin.</div>
+      </div>
+
       <div class="card compact">
         <div class="row between">
           <div>
-            <strong>Tahta</strong>
-            <div class="muted">Bir kareye dokunup tahtadaki harfi gir.</div>
+            <strong>Tahta kontrolü</strong>
+            <div class="muted">Ekran görüntüsünden sonra gerekirse karelere dokunup düzelt.</div>
           </div>
           <button id="clearBoardBtn" class="danger ghost">Tahtayı temizle</button>
         </div>
@@ -142,6 +157,8 @@
 
   <script src="engine.js"></script>
   <script src="dictionary.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="app.js"></script>
+  <script src="screenshot.js"></script>
 </body>
 </html>
