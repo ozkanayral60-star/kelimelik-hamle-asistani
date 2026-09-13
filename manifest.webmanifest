@@ -1,9 +1,13 @@
 {
+  "id": "./",
   "name": "Kelimelik Hamle Asistanı",
   "short_name": "Hamle Asistanı",
   "description": "15x15 Kelimelik tahtasında gerçek oynanabilir hamleleri bulur ve puanlar.",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "portrait-primary",
   "background_color": "#eef3f5",
   "theme_color": "#145a7a",
   "lang": "tr"
