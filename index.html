@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+  <meta name="theme-color" content="#145a7a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Hamle Asistanı" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="styles.css" />
+  <title>Kelimelik Hamle Asistanı</title>
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>Hamle Asistanı</h1>
+      <div id="dictBadge" class="badge">Sözlük hazırlanıyor…</div>
+    </div>
+    <button id="installBtn" class="ghost hidden">Ana ekrana ekle</button>
+  </header>
+
+  <main>
+    <section id="tab-board" class="tab active">
+      <div class="card compact">
+        <div class="row between">
+          <div>
+            <strong>Tahta</strong>
+            <div class="muted">Bir kareye dokunup tahtadaki harfi gir.</div>
+          </div>
+          <button id="clearBoardBtn" class="danger ghost">Tahtayı temizle</button>
+        </div>
+      </div>
+
+      <div class="board-wrap">
+        <div id="board" class="board" aria-label="15'e 15 oyun tahtası"></div>
+      </div>
+
+      <div class="card">
+        <div class="row between rack-title">
+          <strong>Elindeki taşlar</strong>
+          <span class="muted">Joker için ★</span>
+        </div>
+        <div id="rack" class="rack"></div>
+        <button id="solveBtn" class="primary big">Hamleleri Bul</button>
+      </div>
+    </section>
+
+    <section id="tab-results" class="tab">
+      <div class="card">
+        <div class="row gap wrap">
+          <label class="field small-field">Taş sayısı
+            <select id="filterTiles">
+              <option value="all">Tümü</option>
+              <option value="7">7</option><option value="6">6</option><option value="5">5</option>
+              <option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option>
+            </select>
+          </label>
+          <label class="field small-field">Sırala
+            <select id="sortResults">
+              <option value="score">En yüksek puan</option>
+              <option value="tiles">En fazla taş</option>
+              <option value="length">En uzun kelime</option>
+            </select>
+          </label>
+        </div>
+        <div id="resultSummary" class="summary">Henüz hamle hesaplanmadı.</div>
+      </div>
+      <div id="results" class="results"></div>
+    </section>
+
+    <section id="tab-dictionary" class="tab">
+      <div class="card">
+        <h2>Sözlük</h2>
+        <p class="muted">İlk açılışta mini sözlük vardır. Tam Türkçe listeyi bir kez indirirsen cihazda saklanır.</p>
+        <button id="downloadDictBtn" class="primary">Tam sözlüğü indir / güncelle</button>
+        <div id="dictInfo" class="summary"></div>
+      </div>
+      <div class="card">
+        <h3>Özel kelime ekle</h3>
+        <div class="row gap">
+          <input id="addWordInput" maxlength="15" placeholder="Örn. KELİME" />
+          <button id="addWordBtn">Ekle</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Kelimeyi engelle</h3>
+        <div class="row gap">
+          <input id="blockWordInput" maxlength="15" placeholder="Örn. ÖRNEK" />
+          <button id="blockWordBtn" class="danger">Engelle</button>
+        </div>
+        <div id="customWordInfo" class="muted tiny"></div>
+      </div>
+    </section>
+
+    <section id="tab-settings" class="tab">
+      <div class="card">
+        <h2>Ayarlar</h2>
+        <label class="field">7 taş bonusu
+          <input id="sevenBonus" type="number" min="0" max="200" step="1" value="25" />
+        </label>
+        <div class="rulebox"><strong>3 yıldız:</strong> sabit <strong>+25 puan</strong></div>
+        <div class="rulebox"><strong>Merkez 2 yıldız:</strong> ilk kelime puanını <strong>2 ile çarpar</strong></div>
+        <button id="resetAllBtn" class="danger ghost">Tüm yerel verileri sıfırla</button>
+      </div>
+      <div class="card">
+        <h3>Harf puanları</h3>
+        <div id="scoreTable" class="score-grid"></div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="bottom-nav" aria-label="Ana menü">
+    <button data-tab="board" class="active"><span>▦</span>Tahta</button>
+    <button data-tab="results"><span>★</span>Hamleler</button>
+    <button data-tab="dictionary"><span>ABC</span>Sözlük</button>
+    <button data-tab="settings"><span>⚙</span>Ayarlar</button>
+  </nav>
+
+  <div id="pickerBackdrop" class="backdrop hidden"></div>
+  <div id="picker" class="sheet hidden" role="dialog" aria-modal="true">
+    <div class="sheet-handle"></div>
+    <div class="row between"><strong id="pickerTitle">Harf seç</strong><button id="closePicker" class="ghost">Kapat</button></div>
+    <label id="jokerExistingWrap" class="toggle hidden"><input id="jokerExisting" type="checkbox" /> Bu taş tahtada joker olarak kullanılmış (0 puan)</label>
+    <div id="alphabetPicker" class="alphabet"></div>
+    <div class="row gap">
+      <button id="pickJoker" class="star-btn">★ Joker</button>
+      <button id="clearPicked" class="danger ghost">Temizle</button>
+    </div>
+  </div>
+
+  <div id="moveBackdrop" class="backdrop hidden"></div>
+  <div id="moveSheet" class="sheet move-sheet hidden" role="dialog" aria-modal="true">
+    <div class="sheet-handle"></div>
+    <div class="row between"><div><strong id="moveTitle">Hamle</strong><div id="moveSubtitle" class="muted"></div></div><button id="closeMove" class="ghost">Kapat</button></div>
+    <div id="previewBoard" class="board preview"></div>
+    <div id="moveDetails" class="details"></div>
+  </div>
+
+  <div id="loading" class="loading hidden"><div class="spinner"></div><strong>Hamleler hesaplanıyor…</strong><span id="loadingHint">Sözlük ve tahta kontrol ediliyor.</span></div>
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="engine.js"></script>
+  <script src="dictionary.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
