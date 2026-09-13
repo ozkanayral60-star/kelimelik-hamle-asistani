@@ -1,6 +1,20 @@
 (() => {
   'use strict';
 
+  function injectStyles(){
+    if(document.getElementById('longWordRevisionStyles')) return;
+    const s=document.createElement('style'); s.id='longWordRevisionStyles';
+    s.textContent=`
+      .chip.long-word{background:#e7f5ff;color:#0d6588;font-weight:800}
+      .chip.board-contrib{background:#eef7ea;color:#41723a;font-weight:800}
+      .placement-legend{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0 4px;font-size:11px;color:#5c7079}
+      .placement-legend span{display:flex;align-items:center;gap:5px}
+      .placement-legend i{display:inline-block;width:14px;height:14px;border-radius:4px;box-shadow:inset 0 -2px 0 #0002}
+      .legend-existing{background:#f5c81f}.legend-new{background:#ff9b27}
+    `;
+    document.head.appendChild(s);
+  }
+
   function parseCard(card) {
     const wordEl = card.querySelector('.result-word');
     if (!wordEl) return null;
@@ -52,6 +66,7 @@
   }
 
   function init() {
+    injectStyles();
     const results=document.getElementById('results'); if(!results) return;
     const obs=new MutationObserver(enhanceAllCards); obs.observe(results,{childList:true,subtree:true});
     enhanceAllCards();
