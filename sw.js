@@ -1,4 +1,4 @@
-const CACHE='kelimelik-asistani-v3';
+const CACHE='kelimelik-asistani-v4';
 const CORE=['./','./index.html','./styles.css','./engine.js','./dictionary.js','./solver-worker.js','./app.js','./screenshot.js','./result-enhancements.js','./manifest.webmanifest'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)));self.skipWaiting();});
 self.addEventListener('activate',e=>e.waitUntil(Promise.all([
