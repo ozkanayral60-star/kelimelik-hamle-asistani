@@ -34,7 +34,7 @@
           <button id="analyzeScreenshotBtn" class="primary big" disabled>Ekran Görüntüsünü Analiz Et</button>
         </div>
         <div id="scanStatus" class="scan-status">İlk olarak oyundan bir ekran görüntüsü seç.</div>
-        <div class="scan-note">Sistem yalnızca gerçek sarı/turuncu taşları tahta taşı kabul eder; H2/H3/K2/K3 bonus yazılarını taş sanmaz. Görünür 3 yıldız her oyunda yeniden tespit edilir.</div>
+        <div class="scan-note">Sistem yalnızca gerçek sarı/turuncu taşları tahta taşı kabul eder; H2/H3/K2/K3 bonus yazılarını taş sanmaz. Taşın sağ altındaki “?” anlam simgesi yok sayılır; aynı taşın büyük harfi normal şekilde okunur. Görünür 3 yıldız her oyunda yeniden tespit edilir.</div>
       </div>
 
       <div class="card compact">
@@ -158,6 +158,7 @@
   <script src="engine.js"></script>
   <script src="dictionary.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="question-mark-mask.js"></script>
   <script src="dynamic-star.js"></script>
   <script src="app.js"></script>
   <script src="screenshot-v2.js"></script>
