@@ -24,7 +24,7 @@
     <section id="tab-board" class="tab active">
       <div class="card scan-card">
         <strong>📸 Ekran görüntüsünden aktar</strong>
-        <div class="muted" style="margin-top:4px">Kelimelik'te mevcut oyunun ekran görüntüsünü seç. Tahtadaki harfler ve elindeki taşlar otomatik okunur.</div>
+        <div class="muted" style="margin-top:4px">Kelimelik'te mevcut oyunun tam ekran görüntüsünü seç. Tahtadaki tüm taşlar ve elindeki taşlar okunur; eksik okuma varsa eksik tablo kaydedilmez.</div>
         <label class="scan-upload" style="margin-top:12px">
           Ekran Görüntüsü Seç
           <input id="screenshotInput" type="file" accept="image/*" />
@@ -34,7 +34,7 @@
           <button id="analyzeScreenshotBtn" class="primary big" disabled>Ekran Görüntüsünü Analiz Et</button>
         </div>
         <div id="scanStatus" class="scan-status">İlk olarak oyundan bir ekran görüntüsü seç.</div>
-        <div class="scan-note">İlk analizde Türkçe OCR verisi indirilebilir. Analizden sonra tahta açılır; yanlış okunan bir harf varsa kareye dokunup düzeltebilirsin.</div>
+        <div class="scan-note">Sistem önce bütün taş konumlarını bulur, sonra harfleri okur ve taş sayısını doğrular. Bir tahta harfi okunamazsa eksik aktarım yapmak yerine işlemi durdurur.</div>
       </div>
 
       <div class="card compact">
@@ -64,22 +64,21 @@
     <section id="tab-results" class="tab">
       <div class="card">
         <div class="row gap wrap">
-          <label class="field small-field">Taş sayısı
+          <label class="field small-field">Kullanılan yeni taş
             <select id="filterTiles">
               <option value="all">Tümü</option>
               <option value="7">7</option><option value="6">6</option><option value="5">5</option>
               <option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option>
             </select>
           </label>
-          <label class="field small-field">Sırala
+          <label class="field small-field">Gösterim
             <select id="sortResults">
-              <option value="score">En yüksek puan</option>
-              <option value="tiles">En fazla taş</option>
-              <option value="length">En uzun kelime</option>
+              <option value="length" selected>Harf uzunluğuna göre</option>
             </select>
           </label>
         </div>
-        <div class="rulebox"><strong>Uzun kelimeler desteklenir:</strong> Elindeki en fazla 7 yeni taş, tahtada zaten bulunan harflerle birleşerek 8–15 harfli kelimeler oluşturabilir. Sonuçta “yeni taş” ve “tahtadan kullanılan harf” ayrı gösterilir.</div>
+        <div class="rulebox"><strong>Sonuçlar gruplu gösterilir:</strong> 15 harfli, 14 harfli, 13 harfli… şeklinde uzunluktan kısaya sıralanır. Her grubun içinde yüksek puanlı hamle üstte yer alır; tüm sonuçların en yüksek puanlısı 🏆 işaretiyle belirginleştirilir.</div>
+        <div class="rulebox"><strong>Uzun kelimeler desteklenir:</strong> Elindeki en fazla 7 yeni taş, tahtada zaten bulunan harflerle birleşerek 8–15 harfli kelimeler oluşturabilir. “Yeni taş” ve “tahtadan kullanılan harf” ayrı gösterilir.</div>
         <div id="resultSummary" class="summary">Henüz hamle hesaplanmadı.</div>
       </div>
       <div id="results" class="results"></div>
