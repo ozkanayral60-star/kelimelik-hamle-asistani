@@ -5,7 +5,7 @@
   const state = {
     board: E.cloneBoard(JSON.parse(localStorage.getItem('ka-board') || 'null')),
     rack: JSON.parse(localStorage.getItem('ka-rack') || 'null') || Array(7).fill(null),
-    settings: { sevenTileBonus: +(localStorage.getItem('ka-seven-bonus') || 25) },
+    settings: { sevenTileBonus: +(localStorage.getItem('ka-seven-bonus') || 25), star3: JSON.parse(localStorage.getItem('ka-star3') || 'null') },
     results: [], dictionary: null, customAdded: new Set(JSON.parse(localStorage.getItem('ka-added') || '[]')),
     blocked: new Set(JSON.parse(localStorage.getItem('ka-blocked') || '[]')), workerReady: false,
     pickerTarget: null, selectedMove: null, deferredPrompt: null
@@ -15,6 +15,13 @@
   const worker = new Worker('./solver-worker.js');
   let solveId = 0;
 
+  function applyDynamicStar3() {
+    for (let r=0;r<15;r++) for (let c=0;c<15;c++) if (E.BONUS[r][c] === 'STAR3') E.BONUS[r][c] = null;
+    const s = state.settings.star3;
+    if (s && Number.isInteger(s.r) && Number.isInteger(s.c) && s.r>=0 && s.r<15 && s.c>=0 && s.c<15) E.BONUS[s.r][s.c] = 'STAR3';
+  }
+  applyDynamicStar3();
+
   function toast(text) {
     const el = $('toast'); el.textContent = text; el.classList.remove('hidden');
     clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.add('hidden'), 2400);
@@ -23,6 +30,7 @@
     localStorage.setItem('ka-board', JSON.stringify(state.board));
     localStorage.setItem('ka-rack', JSON.stringify(state.rack));
     localStorage.setItem('ka-seven-bonus', String(state.settings.sevenTileBonus));
+    localStorage.setItem('ka-star3', JSON.stringify(state.settings.star3 || null));
     localStorage.setItem('ka-added', JSON.stringify([...state.customAdded]));
     localStorage.setItem('ka-blocked', JSON.stringify([...state.blocked]));
   }
@@ -146,10 +154,10 @@
   }
   function initAlphabet(){const el=$('alphabetPicker');E.ALPHABET.forEach(ch=>{const b=document.createElement('button');b.textContent=ch;b.addEventListener('click',()=>pickLetter(ch));el.appendChild(b);});}
   function initScores(){const el=$('scoreTable');for(const ch of E.ALPHABET){const d=document.createElement('div');d.innerHTML=`<strong>${ch}</strong>${E.LETTER_SCORES[ch]} p`;el.appendChild(d);}}
-  function resetAll(){if(!confirm('Tahta, el, ayarlar ve özel kelime seçimleri sıfırlansın mı?'))return;['ka-board','ka-rack','ka-seven-bonus','ka-added','ka-blocked'].forEach(k=>localStorage.removeItem(k));location.reload();}
+  function resetAll(){if(!confirm('Tahta, el, ayarlar ve özel kelime seçimleri sıfırlansın mı?'))return;['ka-board','ka-rack','ka-seven-bonus','ka-star3','ka-added','ka-blocked'].forEach(k=>localStorage.removeItem(k));location.reload();}
 
   document.querySelectorAll('.bottom-nav button').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
-  $('solveBtn').addEventListener('click',solve);$('clearBoardBtn').addEventListener('click',()=>{state.board=E.cloneBoard(null);persist();renderBoard();});
+  $('solveBtn').addEventListener('click',solve);$('clearBoardBtn').addEventListener('click',()=>{state.board=E.cloneBoard(null);state.settings.star3=null;applyDynamicStar3();persist();renderBoard();});
   $('closePicker').addEventListener('click',closePicker);$('pickerBackdrop').addEventListener('click',closePicker);$('pickJoker').addEventListener('click',pickJoker);$('clearPicked').addEventListener('click',clearPicked);
   $('closeMove').addEventListener('click',closeMove);$('moveBackdrop').addEventListener('click',closeMove);$('filterTiles').addEventListener('change',renderResults);$('sortResults').addEventListener('change',renderResults);
   $('downloadDictBtn').addEventListener('click',downloadDictionary);$('addWordBtn').addEventListener('click',addCustom);$('blockWordBtn').addEventListener('click',blockCustom);
