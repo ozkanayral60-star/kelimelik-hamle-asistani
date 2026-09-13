@@ -114,8 +114,10 @@
     const trie = buildTrie(words);
 
     function perpendicularWord(board, r, c, letter, dr, dc) {
+      // Canonical reading directions only:
+      // horizontal words are left -> right, vertical words are top -> bottom.
       const pdr = dc;
-      const pdc = -dr;
+      const pdc = dr;
       let startR = r, startC = c;
       while (inside(startR - pdr, startC - pdc) && board[startR - pdr][startC - pdc]) {
         startR -= pdr; startC -= pdc;
