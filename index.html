@@ -24,7 +24,7 @@
     <section id="tab-board" class="tab active">
       <div class="card scan-card">
         <strong>📸 Ekran görüntüsünden aktar</strong>
-        <div class="muted" style="margin-top:4px">Kelimelik'te mevcut oyunun tam ekran görüntüsünü seç. Tahtadaki tüm taşlar ve elindeki taşlar okunur; eksik okuma varsa eksik tablo kaydedilmez.</div>
+        <div class="muted" style="margin-top:4px">Kelimelik'te mevcut oyunun tam ekran görüntüsünü seç. Tahtadaki tüm taşlar ve elindeki taşlar okunur; eksik okuma varsa eksik tablo kaydedilmez. 3 yıldızın yeri her oyun için görüntüden ayrıca bulunur.</div>
         <label class="scan-upload" style="margin-top:12px">
           Ekran Görüntüsü Seç
           <input id="screenshotInput" type="file" accept="image/*" />
@@ -34,7 +34,7 @@
           <button id="analyzeScreenshotBtn" class="primary big" disabled>Ekran Görüntüsünü Analiz Et</button>
         </div>
         <div id="scanStatus" class="scan-status">İlk olarak oyundan bir ekran görüntüsü seç.</div>
-        <div class="scan-note">Sistem önce bütün taş konumlarını bulur, sonra harfleri okur ve taş sayısını doğrular. Bir tahta harfi okunamazsa eksik aktarım yapmak yerine işlemi durdurur.</div>
+        <div class="scan-note">Sistem yalnızca gerçek sarı/turuncu taşları tahta taşı kabul eder; H2/H3/K2/K3 bonus yazılarını taş sanmaz. Görünür 3 yıldız her oyunda yeniden tespit edilir.</div>
       </div>
 
       <div class="card compact">
@@ -114,7 +114,7 @@
         <label class="field">7 taş bonusu
           <input id="sevenBonus" type="number" min="0" max="200" step="1" value="25" />
         </label>
-        <div class="rulebox"><strong>3 yıldız:</strong> sabit <strong>+25 puan</strong></div>
+        <div class="rulebox"><strong>3 yıldız:</strong> yeri her oyunda farklı olabilir; görüntüden otomatik bulunur ve kullanıldığında <strong>+25 puan</strong> verir.</div>
         <div class="rulebox"><strong>Merkez 2 yıldız:</strong> ilk kelime puanını <strong>2 ile çarpar</strong></div>
         <button id="resetAllBtn" class="danger ghost">Tüm yerel verileri sıfırla</button>
       </div>
@@ -158,8 +158,9 @@
   <script src="engine.js"></script>
   <script src="dictionary.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="dynamic-star.js"></script>
   <script src="app.js"></script>
-  <script src="screenshot.js"></script>
+  <script src="screenshot-v2.js"></script>
   <script src="result-enhancements.js"></script>
 </body>
 </html>
