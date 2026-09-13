@@ -2,11 +2,8 @@
   'use strict';
 
   const E = window.KelimelikEngine;
-  const ALPHABET = new Set(['A','B','C','Ç','D','E','F','G','Ğ','H','I','İ','J','K','L','M','N','O','Ö','P','R','S','Ş','T','U','Ü','V','Y','Z']);
-  const BASE = {
-    '': [226,226,226], H2:[153,187,195], H3:[207,185,204], K2:[163,193,155], K3:[192,172,150],
-    STAR2:[245,210,139], STAR3:[245,210,139]
-  };
+  const LETTERS = 'ABCÇDEFGĞHIİJKLMNOÖPRSŞTUÜVYZ';
+  const ALPHABET = new Set([...LETTERS]);
   const $ = id => document.getElementById(id);
   let sourceImage = null;
   let worker = null;
@@ -28,179 +25,212 @@
     const el=$('scanStatus'); if(!el)return;
     el.textContent=text; el.classList.remove('ok','error'); if(kind)el.classList.add(kind);
   }
-  function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
-  function rgbAt(ctx,x,y){ const d=ctx.getImageData(clamp(Math.round(x),0,ctx.canvas.width-1),clamp(Math.round(y),0,ctx.canvas.height-1),1,1).data; return [d[0],d[1],d[2]]; }
-  function dist(a,b){ return Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2]); }
 
-  function cellGeometry(img){
-    // Kelimelik'in iPhone dikey ekranındaki kare tahta oranı.
-    const size=Math.min(img.width*.992, img.height*.4615);
-    return { x:(img.width-size)/2, y:img.height*.3425, w:size, h:size };
+  // Kullanıcının gönderdiği iPhone 13 Kelimelik tam ekran görüntülerinden kalibre edildi.
+  // Tahta ekranın tamamına yatayda oturuyor: 15 eşit sütun.
+  function boardGeometry(img){
+    return { x:0, y:img.height*0.34242, w:img.width, h:img.height*0.45814 };
   }
 
-  function tileLike(R,G,B){
-    // Oynanmış taşların sarı/turuncu gövdesi.
-    return R>175 && G>95 && G<235 && B<180 && R>G*.93;
+  function tileGlyphPixel(R,G,B){
+    // Kelimelik taşlarının ana harfi koyu kahverengidir. Bonus kare yazıları beyazdır;
+    // bu yüzden taş var/yok tespitinde renkli kare zemininden çok daha güvenilirdir.
+    return R<180 && G<135 && B<120 && (R-G)>5;
   }
-  function darkLetter(R,G,B){ return R<175 && G<145 && B<130 && (R+G+B)<410; }
 
-  function cellStats(ctx,geom,r,c){
-    const pw=geom.w/15, ph=geom.h/15, x=geom.x+c*pw, y=geom.y+r*ph;
-    let tile=0,dark=0,changed=0,total=0;
-    const bonus=(E?.BONUS?.[r]?.[c])||''; const base=BASE[bonus]||BASE[''];
-    for(let iy=2;iy<=8;iy++)for(let ix=2;ix<=8;ix++){
-      const px=ix/10,py=iy/10,[R,G,B]=rgbAt(ctx,x+pw*px,y+ph*py);total++;
-      if(tileLike(R,G,B))tile++;
-      if(darkLetter(R,G,B))dark++;
-      if(dist([R,G,B],base)>24)changed++;
+  function darkRatioFromRegion(img,sx,sy,sw,sh,step=2){
+    const cv=document.createElement('canvas');
+    cv.width=Math.max(1,Math.round(sw)); cv.height=Math.max(1,Math.round(sh));
+    const cx=cv.getContext('2d',{willReadFrequently:true});
+    cx.drawImage(img,sx,sy,sw,sh,0,0,cv.width,cv.height);
+    const d=cx.getImageData(0,0,cv.width,cv.height).data;
+    let dark=0,total=0;
+    for(let y=0;y<cv.height;y+=step) for(let x=0;x<cv.width;x+=step){
+      const i=(y*cv.width+x)*4; total++;
+      if(tileGlyphPixel(d[i],d[i+1],d[i+2])) dark++;
     }
-    return {tileFrac:tile/total,darkFrac:dark/total,changedFrac:changed/total,bonus};
+    return total ? dark/total : 0;
   }
 
-  function isOccupied(ctx,geom,r,c){
-    const s=cellStats(ctx,geom,r,c);
-    // Normal/H/K karelerinde taş gövdesi en güvenilir sinyal.
-    if(s.bonus!=='STAR2' && s.bonus!=='STAR3' && s.tileFrac>.24) return true;
-    // Yıldız karelerinin boş zemini de sarı olduğu için koyu ana harf + değişim aranır.
-    if((s.bonus==='STAR2'||s.bonus==='STAR3') && s.darkFrac>.035 && s.changedFrac>.20) return true;
-    // Tema/ekran farklarına karşı yedek ölçüt.
-    return s.changedFrac>.62 && s.darkFrac>.025;
-  }
-
-  function cropCell(img,geom,r,c,mode='binary'){
+  function isOccupied(img,geom,r,c){
     const pw=geom.w/15,ph=geom.h/15;
-    const sx=geom.x+c*pw+pw*.055, sy=geom.y+r*ph+ph*.04, sw=pw*.89, sh=ph*.91;
-    const cv=document.createElement('canvas');cv.width=180;cv.height=180;
-    const cx=cv.getContext('2d',{willReadFrequently:true});cx.drawImage(img,sx,sy,sw,sh,0,0,180,180);
-    if(mode==='raw')return cv;
-    const im=cx.getImageData(0,0,180,180),d=im.data;
-    for(let yy=0;yy<180;yy++)for(let xx=0;xx<180;xx++){
-      const i=(yy*180+xx)*4,R=d[i],G=d[i+1],B=d[i+2];
-      const scoreZone=xx>126&&yy<66;
-      const keep=darkLetter(R,G,B)&&!scoreZone;
-      d[i]=d[i+1]=d[i+2]=keep?0:255;d[i+3]=255;
+    const sx=geom.x+c*pw+pw*.12, sy=geom.y+r*ph+ph*.10;
+    const ratio=darkRatioFromRegion(img,sx,sy,pw*.76,ph*.80,2);
+    return ratio>.045;
+  }
+
+  function cropGlyph(img,geom,r,c){
+    const pw=geom.w/15,ph=geom.h/15;
+    // Ana harfi al, sağ üstteki küçük puanı dışarıda bırak.
+    const sx=geom.x+c*pw+pw*.12, sy=geom.y+r*ph+ph*.06;
+    const sw=pw*.66, sh=ph*.86;
+    const cv=document.createElement('canvas'); cv.width=300; cv.height=300;
+    cv.getContext('2d',{willReadFrequently:true}).drawImage(img,sx,sy,sw,sh,0,0,300,300);
+    return cv;
+  }
+
+  function grayscaleCopy(cv){
+    const out=document.createElement('canvas'); out.width=cv.width; out.height=cv.height;
+    const cx=out.getContext('2d',{willReadFrequently:true}); cx.drawImage(cv,0,0);
+    const im=cx.getImageData(0,0,out.width,out.height),d=im.data;
+    for(let i=0;i<d.length;i+=4){
+      let g=Math.round(d[i]*.299+d[i+1]*.587+d[i+2]*.114);
+      g=g<128 ? Math.max(0,g-35) : Math.min(255,g+25);
+      d[i]=d[i+1]=d[i+2]=g; d[i+3]=255;
     }
-    cx.putImageData(im,0,0);return cv;
+    cx.putImageData(im,0,0); return out;
+  }
+
+  function binaryCopy(cv){
+    const out=grayscaleCopy(cv),cx=out.getContext('2d',{willReadFrequently:true});
+    const im=cx.getImageData(0,0,out.width,out.height),d=im.data;
+    for(let i=0;i<d.length;i+=4){const v=d[i]<175?0:255;d[i]=d[i+1]=d[i+2]=v;}
+    cx.putImageData(im,0,0); return out;
   }
 
   function detectJokerBadge(img,geom,r,c){
-    const pw=geom.w/15,ph=geom.h/15,sx=Math.floor(geom.x+c*pw),sy=Math.floor(geom.y+r*ph),sw=Math.max(1,Math.floor(pw)),sh=Math.max(1,Math.floor(ph));
-    const cv=document.createElement('canvas');cv.width=sw;cv.height=sh;const cx=cv.getContext('2d',{willReadFrequently:true});cx.drawImage(img,sx,sy,sw,sh,0,0,sw,sh);
-    const d=cx.getImageData(0,0,sw,sh).data;let blue=0,total=sw*sh;
-    for(let i=0;i<d.length;i+=4){const R=d[i],G=d[i+1],B=d[i+2];if(B>115&&G>85&&R<110&&B>R*1.25)blue++;}
+    const pw=geom.w/15,ph=geom.h/15,sx=geom.x+c*pw,sy=geom.y+r*ph;
+    const cv=document.createElement('canvas');cv.width=Math.max(1,Math.round(pw));cv.height=Math.max(1,Math.round(ph));
+    const cx=cv.getContext('2d',{willReadFrequently:true});cx.drawImage(img,sx,sy,pw,ph,0,0,cv.width,cv.height);
+    const d=cx.getImageData(0,0,cv.width,cv.height).data;let blue=0,total=cv.width*cv.height;
+    for(let i=0;i<d.length;i+=4){const R=d[i],G=d[i+1],B=d[i+2];if(B>120&&G>90&&R<105&&B>R*1.35)blue++;}
     return blue/total>.002;
   }
 
   function normalizeOcr(text){
-    const up=(text||'').toLocaleUpperCase('tr-TR').replace(/[^ABCÇDEFGĞHIİJKLMNOÖPRSŞTUÜVYZ]/g,'');
-    if(!up)return null; for(const ch of up)if(ALPHABET.has(ch))return ch; return null;
+    const cleaned=[...(text||'').toLocaleUpperCase('tr-TR')].filter(ch=>ALPHABET.has(ch)).join('');
+    // Çok harfli OCR çıktısından ilk harfi tahmin ETME. Yanlış tahta oluşturmaktansa tekrar oku.
+    return cleaned.length===1 ? cleaned : null;
   }
 
   async function getWorker(){
     if(worker)return worker;
     if(!window.Tesseract)throw new Error('OCR motoru yüklenemedi. İnternet bağlantını kontrol edip tekrar dene.');
-    setStatus('Türkçe OCR motoru ilk kez hazırlanıyor…\nİlk kullanımda birkaç MB veri indirilebilir.');
+    setStatus('Türkçe harf tanıma motoru hazırlanıyor…\nİlk kullanımda dil verisi indirilebilir.');
     worker=await Tesseract.createWorker('tur',1,{logger:m=>{
       if(m.status==='loading language traineddata')setStatus(`Türkçe OCR verisi yükleniyor… %${Math.round((m.progress||0)*100)}`);
       else if(m.status==='initializing api')setStatus('OCR motoru hazırlanıyor…');
     }});
-    await worker.setParameters({tessedit_pageseg_mode:10,tessedit_char_whitelist:'ABCÇDEFGĞHIİJKLMNOÖPRSŞTUÜVYZ'});
+    // RAW_LINE, Kelimelik'in tek büyük harfli taşlarında SINGLE_CHAR'dan daha güvenilir çıktı verdi.
+    await worker.setParameters({tessedit_pageseg_mode:13,tessedit_char_whitelist:LETTERS});
     return worker;
   }
 
-  async function recognizeCanvas(cv){
-    const w=await getWorker(),out=await w.recognize(cv),text=out?.data?.text||'',confidence=Number(out?.data?.confidence||0);
-    return {letter:normalizeOcr(text),confidence,text};
+  async function recognize(cv){
+    const w=await getWorker();
+    const out=await w.recognize(cv);
+    return {letter:normalizeOcr(out?.data?.text||''),confidence:Number(out?.data?.confidence||0),raw:(out?.data?.text||'').trim()};
   }
 
-  async function readCellLetter(img,geom,r,c){
-    const first=await recognizeCanvas(cropCell(img,geom,r,c,'binary'));
-    if(first.letter&&first.confidence>=55)return first;
-    const second=await recognizeCanvas(cropCell(img,geom,r,c,'raw'));
-    const valid=[first,second].filter(x=>x.letter).sort((a,b)=>b.confidence-a.confidence);
-    return valid[0]||{letter:null,confidence:0,text:''};
-  }
-
-  function rackGeometry(img){return{x:img.width*.016,y:img.height*.811,w:img.width*.969,h:img.height*.065};}
-  function rackTileFraction(img,rg,i){
-    const p=rg.w/7,sx=rg.x+i*p+p*.08,sy=rg.y+rg.h*.08,sw=p*.84,sh=rg.h*.82;
-    const cv=document.createElement('canvas');cv.width=60;cv.height=60;const cx=cv.getContext('2d',{willReadFrequently:true});cx.drawImage(img,sx,sy,sw,sh,0,0,60,60);
-    const d=cx.getImageData(0,0,60,60).data;let n=0;for(let k=0;k<d.length;k+=4)if(tileLike(d[k],d[k+1],d[k+2]))n++;return n/(60*60);
-  }
-  function rackSlotPresent(img,rg,i){return rackTileFraction(img,rg,i)>.22;}
-  function cropRack(img,rg,i,mode='binary'){
-    const p=rg.w/7,sx=rg.x+i*p+p*.06,sy=rg.y+rg.h*.035,sw=p*.88,sh=rg.h*.91;
-    const cv=document.createElement('canvas');cv.width=180;cv.height=180;const cx=cv.getContext('2d',{willReadFrequently:true});cx.drawImage(img,sx,sy,sw,sh,0,0,180,180);
-    if(mode==='raw')return cv;
-    const im=cx.getImageData(0,0,180,180),d=im.data;
-    for(let yy=0;yy<180;yy++)for(let xx=0;xx<180;xx++){
-      const k=(yy*180+xx)*4,R=d[k],G=d[k+1],B=d[k+2],scoreZone=xx>128&&yy<62;
-      const keep=darkLetter(R,G,B)&&!scoreZone;d[k]=d[k+1]=d[k+2]=keep?0:255;d[k+3]=255;
+  async function readGlyph(cv){
+    const a=await recognize(cv);
+    if(a.letter && a.confidence>=45) return a;
+    const b=await recognize(grayscaleCopy(cv));
+    if(a.letter && b.letter && a.letter===b.letter) return a.confidence>=b.confidence?a:b;
+    if(!a.letter && b.letter) return b;
+    if(a.letter && !b.letter) return a;
+    if(a.letter && b.letter && a.letter!==b.letter){
+      const c=await recognize(binaryCopy(cv));
+      if(c.letter===a.letter) return a;
+      if(c.letter===b.letter) return b;
+      return {letter:null,confidence:0,raw:`${a.raw}/${b.raw}/${c.raw}`};
     }
-    cx.putImageData(im,0,0);return cv;
+    const c=await recognize(binaryCopy(cv));
+    return c.letter?c:{letter:null,confidence:0,raw:c.raw};
   }
-  async function readRackLetter(img,rg,i){
-    const a=await recognizeCanvas(cropRack(img,rg,i,'binary'));if(a.letter&&a.confidence>=55)return a;
-    const b=await recognizeCanvas(cropRack(img,rg,i,'raw'));const valid=[a,b].filter(x=>x.letter).sort((x,y)=>y.confidence-x.confidence);return valid[0]||{letter:null,confidence:0};
+
+  function rackGeometry(img){return{x:img.width*.016,y:img.height*.807,w:img.width*.969,h:img.height*.070};}
+  function rackSlotPresent(img,rg,i){
+    const p=rg.w/7,sx=rg.x+i*p+p*.08,sy=rg.y+rg.h*.10,sw=p*.84,sh=rg.h*.75;
+    const cv=document.createElement('canvas');cv.width=70;cv.height=70;const cx=cv.getContext('2d',{willReadFrequently:true});
+    cx.drawImage(img,sx,sy,sw,sh,0,0,70,70);const d=cx.getImageData(0,0,70,70).data;
+    let yellow=0,total=70*70;
+    for(let k=0;k<d.length;k+=4){const R=d[k],G=d[k+1],B=d[k+2];if(R>185&&G>120&&B<200&&R-B>35)yellow++;}
+    return yellow/total>.22;
+  }
+  function cropRackGlyph(img,rg,i){
+    const p=rg.w/7,sx=rg.x+i*p+p*.14,sy=rg.y+rg.h*.08,sw=p*.62,sh=rg.h*.82;
+    const cv=document.createElement('canvas');cv.width=300;cv.height=300;
+    cv.getContext('2d',{willReadFrequently:true}).drawImage(img,sx,sy,sw,sh,0,0,300,300);return cv;
+  }
+  function rackGlyphRatio(img,rg,i){
+    const p=rg.w/7,sx=rg.x+i*p+p*.14,sy=rg.y+rg.h*.08;
+    return darkRatioFromRegion(img,sx,sy,p*.62,rg.h*.82,2);
   }
 
   async function analyze(){
     if(!sourceImage){setStatus('Önce Kelimelik ekran görüntüsünü seç.','error');return;}
     const btn=$('analyzeScreenshotBtn');btn.disabled=true;
     try{
-      const img=sourceImage,cv=document.createElement('canvas');cv.width=img.width;cv.height=img.height;
-      const ctx=cv.getContext('2d',{willReadFrequently:true});ctx.drawImage(img,0,0);
-      const geom=cellGeometry(img),board=Array.from({length:15},()=>Array(15).fill(null));
+      const img=sourceImage;
+      const ratio=img.width/img.height;
+      if(ratio<.43||ratio>.50)throw new Error('Tam ekran dikey Kelimelik ekran görüntüsü seç. Kırpılmış görüntü kullanma.');
+
+      const geom=boardGeometry(img),board=Array.from({length:15},()=>Array(15).fill(null));
       const occupied=[];
-      for(let r=0;r<15;r++)for(let c=0;c<15;c++)if(isOccupied(ctx,geom,r,c))occupied.push([r,c]);
-      if(!occupied.length)throw new Error('Tahtadaki taşlar algılanamadı. Tam ekran Kelimelik ekran görüntüsü kullan.');
-      setStatus(`${occupied.length} tahta taşı bulundu. Tüm harfler doğrulanarak okunuyor…`);
-      const unresolved=[],low=[];
+      for(let r=0;r<15;r++)for(let c=0;c<15;c++)if(isOccupied(img,geom,r,c))occupied.push([r,c]);
+      setStatus(`${occupied.length} tahta taşı tespit edildi. Harfler okunuyor…`);
+
+      const unresolved=[];
       for(let n=0;n<occupied.length;n++){
-        const [r,c]=occupied[n];setStatus(`Tahtadaki harfler okunuyor: ${n+1}/${occupied.length}\n${E.coord(r,c)}`);
-        const read=await readCellLetter(img,geom,r,c);
-        if(read.letter){board[r][c]={letter:read.letter,isJoker:detectJokerBadge(img,geom,r,c)};if(read.confidence<35)low.push(E.coord(r,c));}
-        else unresolved.push(E.coord(r,c));
+        const [r,c]=occupied[n];
+        setStatus(`Tahtadaki harfler okunuyor: ${n+1}/${occupied.length}\n${E.coord(r,c)}`);
+        const read=await readGlyph(cropGlyph(img,geom,r,c));
+        if(!read.letter){unresolved.push(E.coord(r,c));continue;}
+        board[r][c]={letter:read.letter,isJoker:detectJokerBadge(img,geom,r,c)};
       }
 
-      // Eksik harf varsa eksik tabloyu KESİNLİKLE kaydetme.
+      // Bir tek kare bile çözülemezse yarım/yanlış tahta kaydetme.
       if(unresolved.length){
-        setStatus(`Aktarım durduruldu. ${unresolved.length} tahta karesi güvenilir biçimde okunamadı: ${unresolved.join(', ')}\n\nEksik tahta oluşturulmadı. Ekran görüntüsünü yeniden seçip tekrar dene.`,'error');
+        setStatus(`Aktarım kaydedilmedi. Şu kareler güvenilir okunamadı: ${unresolved.join(', ')}\n\nAynı ekran görüntüsüyle tekrar dene. Sorun sürerse ekran görüntüsünü bana gönder; o görüntü tipini de kalibre edeyim.`,'error');
         btn.disabled=false;return;
       }
 
       const rg=rackGeometry(img),rack=Array(7).fill(null),present=[];
       for(let i=0;i<7;i++)if(rackSlotPresent(img,rg,i))present.push(i);
+      const rackUnresolved=[];
       for(let n=0;n<present.length;n++){
         const i=present[n];setStatus(`Eldeki taşlar okunuyor: ${n+1}/${present.length}`);
-        const read=await readRackLetter(img,rg,i);
-        // Harfsiz ama fiziksel olarak bulunan sarı taş joker kabul edilir.
-        rack[i]=read.letter||'*';
+        const read=await readGlyph(cropRackGlyph(img,rg,i));
+        if(read.letter){rack[i]=read.letter;continue;}
+        // Fiziksel taş var ama ortasında kahverengi harf yoksa bu gerçek boş joker taşıdır.
+        if(rackGlyphRatio(img,rg,i)<.018) rack[i]='*';
+        else rackUnresolved.push(i+1);
+      }
+      if(rackUnresolved.length){
+        setStatus(`Aktarım kaydedilmedi. Eldeki şu taşlar güvenilir okunamadı: ${rackUnresolved.join(', ')}. Joker olarak tahmin edilmedi.`,'error');
+        btn.disabled=false;return;
       }
 
       const transferred=board.flat().filter(Boolean).length;
-      if(transferred!==occupied.length)throw new Error(`Tahta doğrulaması başarısız: ${transferred}/${occupied.length}. Eksik veri kaydedilmedi.`);
+      if(transferred!==occupied.length)throw new Error(`Tahta doğrulaması başarısız: ${transferred}/${occupied.length}.`);
+
       localStorage.setItem('ka-board',JSON.stringify(board));
       localStorage.setItem('ka-rack',JSON.stringify(rack));
       const rackCount=rack.filter(Boolean).length;
-      const notes=[`${transferred}/${occupied.length} tahta taşı eksiksiz aktarıldı`,`${rackCount}/${present.length} el taşı aktarıldı`];
-      if(low.length)notes.push(`Düşük OCR güveni olan ama okunan kareler: ${low.join(', ')}`);
-      sessionStorage.setItem('ka-scan-note',notes.join(' • '));
-      setStatus(`Aktarım doğrulandı ✓\nTahta: ${transferred}/${occupied.length}\nEl: ${rackCount}/${present.length}\nTabloya aktarılıyor…`,'ok');
+      sessionStorage.setItem('ka-scan-note',`Tahta ${transferred}/${occupied.length} • El ${rackCount}/${present.length} • Eksik kare yok`);
+      setStatus(`Eksiksiz aktarım doğrulandı ✓\nTahta: ${transferred}/${occupied.length}\nEl: ${rackCount}/${present.length}\nTablo açılıyor…`,'ok');
       setTimeout(()=>location.reload(),650);
     }catch(err){console.error(err);setStatus('Analiz tamamlanamadı: '+(err.message||err),'error');btn.disabled=false;}
   }
 
   function loadFile(file){
-    if(!file)return;const url=URL.createObjectURL(file),img=new Image();
-    img.onload=()=>{sourceImage=img;const prev=$('scanPreview');prev.src=url;prev.classList.add('show');$('analyzeScreenshotBtn').disabled=false;setStatus(`Görüntü hazır: ${img.width} × ${img.height}\n“Ekran Görüntüsünü Analiz Et”e bas.`);};
-    img.onerror=()=>setStatus('Görüntü açılamadı.','error');img.src=url;
+    if(!file)return;
+    const url=URL.createObjectURL(file),img=new Image();
+    img.onload=()=>{
+      sourceImage=img;
+      const prev=$('scanPreview');prev.src=url;prev.classList.add('show');
+      $('analyzeScreenshotBtn').disabled=false;
+      setStatus(`Görüntü hazır: ${img.width} × ${img.height}\n“Ekran Görüntüsünü Analiz Et”e bas.`);
+    };
+    img.onerror=()=>setStatus('Görüntü açılamadı.','error'); img.src=url;
   }
 
   function showPreviousNote(){
     const note=sessionStorage.getItem('ka-scan-note');if(!note)return;sessionStorage.removeItem('ka-scan-note');
-    const boardTab=$('tab-board');if(!boardTab)return;const d=document.createElement('div');d.className='scan-warning';
-    d.innerHTML='<strong>Ekran görüntüsü eksiksiz aktarım kontrolünden geçti.</strong><br>'+note+'<br><br>İstersen yine de gözle kontrol edebilirsin; herhangi bir harfe dokunarak düzeltme yapabilirsin.';
+    const boardTab=$('tab-board');if(!boardTab)return;
+    const d=document.createElement('div');d.className='scan-warning';
+    d.innerHTML='<strong>Ekran görüntüsü eksiksiz aktarıldı.</strong><br>'+note+'<br><br>Yine de hamle hesaplamadan önce tabloya bir göz atabilirsin.';
     boardTab.insertBefore(d,boardTab.firstChild);
   }
 
