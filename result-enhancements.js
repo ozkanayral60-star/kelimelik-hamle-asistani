@@ -78,13 +78,29 @@
     regrouping=true;
     if(observer)observer.disconnect();
     cards.forEach(enhanceCard);
+
+    const quick=document.getElementById('quickFilter')?.value||'all';
+    markBest(cards);
+    results.innerHTML='';
+
+    if(quick==='top5'){
+      cards.sort((a,b)=>+(b.dataset.score||0)-+(a.dataset.score||0)||+(b.dataset.wordLength||0)-+(a.dataset.wordLength||0));
+      const section=document.createElement('section');section.className='length-group';
+      const header=document.createElement('div');header.className='length-header';
+      header.innerHTML=`<strong>En yüksek puanlı 5 hamle</strong><span>${cards.length} seçenek</span>`;
+      section.appendChild(header);
+      cards.forEach(card=>section.appendChild(card));
+      results.appendChild(section);
+      regrouping=false;
+      if(observer)observer.observe(results,{childList:true,subtree:true});
+      return;
+    }
+
     cards.sort((a,b)=>{
       const la=+(a.dataset.wordLength||0),lb=+(b.dataset.wordLength||0);
       const sa=+(a.dataset.score||0),sb=+(b.dataset.score||0);
       return lb-la || sb-sa || (a.dataset.word||'').localeCompare(b.dataset.word||'','tr');
     });
-    markBest(cards);
-    results.innerHTML='';
     const groups=new Map();
     for(const card of cards){
       const len=+(card.dataset.wordLength||0);
