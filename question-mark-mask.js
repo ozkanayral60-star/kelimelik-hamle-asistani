@@ -3,13 +3,16 @@
 
   // Kelimelik'te rakibin son hamlesindeki taşlar turuncudur. Son hamlede oluşan
   // kelimenin anlamını açan mavi “?” simgesi taşın sağ alt köşesinde bulunabilir.
-  // Bu simge joker değildir. Bu dosya iki işi yapar:
+  // Bu simge joker değildir. Bu dosya üç işi yapar:
   // 1) OCR'ye giderken sağ üst puanı ve sağ alt ? simgesini maskeler.
   // 2) Ekran görüntüsünün kendisinden turuncu+? karelerin koordinatlarını bulur ve
   //    bu karelerin isJoker=true olarak kaydedilmesini kesin olarak engeller.
+  // 3) Elde büyük harf gövdesi bulunmayan joker taşının küçük izlerini OCR'nin
+  //    yanlışlıkla gerçek harf sanmasını engeller.
 
   const meaningCoords = new Set();
   let lastFile = null;
+  let scanActive = false;
 
   function boardGeometry(img){
     const size=Math.min(img.width*.992,img.height*.4615);
@@ -63,30 +66,40 @@
   document.addEventListener('change',e=>{
     if(e.target&&e.target.id==='screenshotInput'){
       lastFile=e.target.files&&e.target.files[0]||null;
+      scanActive=false;
       scanMeaningBadges(lastFile);
     }
   },true);
 
   document.addEventListener('click',e=>{
-    if(e.target&&e.target.id==='analyzeScreenshotBtn'&&lastFile) scanMeaningBadges(lastFile);
+    if(e.target&&e.target.id==='analyzeScreenshotBtn'&&lastFile){
+      scanActive=true;
+      scanMeaningBadges(lastFile);
+    }
   },true);
 
   // Doğrudan koordinata göre düzeltme: OCR sırasına bağlı değildir. Böylece İ/I gibi
   // bazı harfler OCR'ye hiç gitmeden şekilden tanınsa bile sağ alttaki ? joker sayılmaz.
   const nativeSetItem=Storage.prototype.setItem;
   Storage.prototype.setItem=function(key,value){
-    if(this===localStorage&&key==='ka-board'&&meaningCoords.size){
-      try{
-        const board=JSON.parse(value);
-        for(const key of meaningCoords){
-          const [r,c]=key.split(',').map(Number);
-          if(board?.[r]?.[c]){
-            board[r][c].isJoker=false;
-            board[r][c].meaningBadge=true;
+    if(this===localStorage&&key==='ka-board'){
+      if(scanActive){
+        try{sessionStorage.setItem('ka-auto-fit-board','1');}catch{}
+        scanActive=false;
+      }
+      if(meaningCoords.size){
+        try{
+          const board=JSON.parse(value);
+          for(const key of meaningCoords){
+            const [r,c]=key.split(',').map(Number);
+            if(board?.[r]?.[c]){
+              board[r][c].isJoker=false;
+              board[r][c].meaningBadge=true;
+            }
           }
-        }
-        value=JSON.stringify(board);
-      }catch{}
+          value=JSON.stringify(board);
+        }catch{}
+      }
     }
     return nativeSetItem.call(this,key,value);
   };
@@ -104,6 +117,43 @@
       if(x>input.width*.52&&y>input.height*.50){lr++;if(isMeaningBlue(R,G,B))blue++;}
     }
     return{recentOrange:orange/Math.max(1,total)>.18,meaningBadge:blue/Math.max(1,lr)>.035};
+  }
+
+  function darkPixel(R,G,B){
+    return R<170&&G<150&&B<135&&(R+G+B)<420;
+  }
+
+  // Büyük ana harf var mı? I/İ gibi dar harfleri de kabul eder. Jokerde büyük bir
+  // harf olmadığı için küçük puan/ikon kalıntıları tek başına yeterli sayılmaz.
+  function hasMainLetterGlyph(input){
+    if(!(input instanceof HTMLCanvasElement)||input.width!==220||input.height!==220)return true;
+    const w=input.width,h=input.height,ctx=input.getContext('2d',{willReadFrequently:true});
+    const d=ctx.getImageData(0,0,w,h).data;
+    const x0=Math.floor(w*.12),x1=Math.floor(w*.70),y0=Math.floor(h*.08),y1=Math.floor(h*.91);
+    const mw=x1-x0,mh=y1-y0,mask=new Uint8Array(mw*mh),seen=new Uint8Array(mw*mh);
+    for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){
+      const i=(y*w+x)*4;
+      if(darkPixel(d[i],d[i+1],d[i+2]))mask[(y-y0)*mw+(x-x0)]=1;
+    }
+    let bestArea=0,bestHeight=0,bestWidth=0;
+    const stack=[];
+    for(let yy=0;yy<mh;yy++)for(let xx=0;xx<mw;xx++){
+      const start=yy*mw+xx;
+      if(!mask[start]||seen[start])continue;
+      stack.length=0;stack.push(start);seen[start]=1;
+      let area=0,minX=mw,maxX=0,minY=mh,maxY=0;
+      while(stack.length){
+        const q=stack.pop(),qy=Math.floor(q/mw),qx=q-qy*mw;area++;
+        if(qx<minX)minX=qx;if(qx>maxX)maxX=qx;if(qy<minY)minY=qy;if(qy>maxY)maxY=qy;
+        const n1=q-1,n2=q+1,n3=q-mw,n4=q+mw;
+        if(qx>0&&mask[n1]&&!seen[n1]){seen[n1]=1;stack.push(n1);}
+        if(qx<mw-1&&mask[n2]&&!seen[n2]){seen[n2]=1;stack.push(n2);}
+        if(qy>0&&mask[n3]&&!seen[n3]){seen[n3]=1;stack.push(n3);}
+        if(qy<mh-1&&mask[n4]&&!seen[n4]){seen[n4]=1;stack.push(n4);}
+      }
+      if(area>bestArea){bestArea=area;bestHeight=maxY-minY+1;bestWidth=maxX-minX+1;}
+    }
+    return bestArea>=115&&bestHeight>=58&&bestWidth>=7;
   }
 
   function coreLetterCanvas(input){
@@ -130,7 +180,12 @@
     const worker=await originalCreateWorker(...args);
     if(!worker||typeof worker.recognize!=='function')return worker;
     const originalRecognize=worker.recognize.bind(worker);
-    worker.recognize=function(image,...rest){return originalRecognize(sanitize(image),...rest);};
+    worker.recognize=async function(image,...rest){
+      // Jokerin üzerinde büyük gerçek harf yoksa OCR'nin küçük izlerden sahte harf
+      // üretmesine izin verme. screenshot-v2 bunu * joker olarak kaydeder.
+      if(!hasMainLetterGlyph(image))return{data:{text:'',confidence:0}};
+      return originalRecognize(sanitize(image),...rest);
+    };
     return worker;
   };
 })();
