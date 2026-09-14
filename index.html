@@ -36,7 +36,7 @@
           <button id="analyzeScreenshotBtn" class="primary big" disabled>Ekran Görüntüsünü Analiz Et</button>
         </div>
         <div id="scanStatus" class="scan-status">İlk olarak oyundan bir ekran görüntüsü seç.</div>
-        <div class="scan-note">Sistem yalnızca gerçek sarı/turuncu taşları tahta taşı kabul eder; H2/H3/K2/K3 bonus yazılarını taş sanmaz. Taşın sağ altındaki “?” anlam simgesi yok sayılır; aynı taşın büyük harfi normal şekilde okunur. Görünür 3 yıldız her oyunda yeniden tespit edilir.</div>
+        <div class="scan-note">Sistem yalnızca gerçek sarı/turuncu taşları tahta taşı kabul eder; H2/H3/K2/K3 bonus yazılarını taş sanmaz. Taşın sağ altındaki “?” anlam simgesi yok sayılır; aynı taşın büyük harfi normal şekilde okunur. Eldeki joker ayrıca tanınır. Görünür 3 yıldız her oyunda yeniden tespit edilir.</div>
       </div>
 
       <div class="card compact">
@@ -73,12 +73,20 @@
               <option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option>
             </select>
           </label>
+          <label class="field small-field">Hızlı filtre
+            <select id="quickFilter">
+              <option value="all">Tüm hamleler</option>
+              <option value="seven">🎁 7 taşın tamamını kullananlar</option>
+              <option value="top5">🏆 En yüksek puanlı 5 hamle</option>
+            </select>
+          </label>
           <label class="field small-field">Gösterim
             <select id="sortResults">
               <option value="length" selected>Harf uzunluğuna göre</option>
             </select>
           </label>
         </div>
+        <div class="rulebox"><strong>Hızlı filtreler:</strong> “7 taşın tamamını kullananlar” filtresi, tahtadan kaç harfe bağlandığına bakmadan elindeki 7 taşı da kullandığın bonus hamlelerini gösterir. “En yüksek puanlı 5 hamle” yalnızca en yüksek toplam puanlı beş seçeneği gösterir.</div>
         <div class="rulebox"><strong>Sonuçlar gruplu gösterilir:</strong> 15 harfli, 14 harfli, 13 harfli… şeklinde uzunluktan kısaya sıralanır. Her grubun içinde yüksek puanlı hamle üstte yer alır; tüm sonuçların en yüksek puanlısı 🏆 işaretiyle belirginleştirilir.</div>
         <div class="rulebox"><strong>Uzun kelimeler desteklenir:</strong> Elindeki en fazla 7 yeni taş, tahtada zaten bulunan harflerle birleşerek 8–15 harfli kelimeler oluşturabilir. “Yeni taş” ve “tahtadan kullanılan harf” ayrı gösterilir.</div>
         <div id="resultSummary" class="summary">Henüz hamle hesaplanmadı.</div>
@@ -164,6 +172,7 @@
   <script src="dynamic-star.js"></script>
   <script src="app.js"></script>
   <script src="screenshot-v2.js"></script>
+  <script src="ui-fit.js"></script>
   <script src="result-enhancements.js"></script>
 </body>
 </html>
