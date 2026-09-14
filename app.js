@@ -102,9 +102,17 @@
     worker.postMessage({type:'solve',id:++solveId,board:state.board,rack,settings:state.settings});
   }
   function sortedFiltered(){
-    let arr=[...state.results]; const f=$('filterTiles').value;if(f!=='all')arr=arr.filter(x=>x.usedTiles===+f);
+    let arr=[...state.results];
+    const f=$('filterTiles').value;
+    if(f!=='all')arr=arr.filter(x=>x.usedTiles===+f);
+
+    const quick=$('quickFilter')?.value||'all';
+    if(quick==='seven') arr=arr.filter(x=>x.usedTiles===7);
+    if(quick==='top5') arr=arr.sort((a,b)=>b.score.total-a.score.total||b.usedTiles-a.usedTiles||b.word.length-a.word.length).slice(0,5);
+
     const s=$('sortResults').value;
-    if(s==='tiles')arr.sort((a,b)=>b.usedTiles-a.usedTiles||b.score.total-a.score.total);
+    if(quick==='top5') arr.sort((a,b)=>b.score.total-a.score.total||b.usedTiles-a.usedTiles||b.word.length-a.word.length);
+    else if(s==='tiles')arr.sort((a,b)=>b.usedTiles-a.usedTiles||b.score.total-a.score.total);
     else if(s==='length')arr.sort((a,b)=>b.word.length-a.word.length||b.score.total-a.score.total);
     else arr.sort((a,b)=>b.score.total-a.score.total||b.usedTiles-a.usedTiles);
     return arr;
@@ -159,7 +167,7 @@
   document.querySelectorAll('.bottom-nav button').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
   $('solveBtn').addEventListener('click',solve);$('clearBoardBtn').addEventListener('click',()=>{state.board=E.cloneBoard(null);state.settings.star3=null;applyDynamicStar3();persist();renderBoard();});
   $('closePicker').addEventListener('click',closePicker);$('pickerBackdrop').addEventListener('click',closePicker);$('pickJoker').addEventListener('click',pickJoker);$('clearPicked').addEventListener('click',clearPicked);
-  $('closeMove').addEventListener('click',closeMove);$('moveBackdrop').addEventListener('click',closeMove);$('filterTiles').addEventListener('change',renderResults);$('sortResults').addEventListener('change',renderResults);
+  $('closeMove').addEventListener('click',closeMove);$('moveBackdrop').addEventListener('click',closeMove);$('filterTiles').addEventListener('change',renderResults);$('sortResults').addEventListener('change',renderResults);$('quickFilter')?.addEventListener('change',renderResults);
   $('downloadDictBtn').addEventListener('click',downloadDictionary);$('addWordBtn').addEventListener('click',addCustom);$('blockWordBtn').addEventListener('click',blockCustom);
   $('sevenBonus').value=state.settings.sevenTileBonus;$('sevenBonus').addEventListener('change',e=>{state.settings.sevenTileBonus=Math.max(0,+e.target.value||0);persist();});$('resetAllBtn').addEventListener('click',resetAll);
   window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();state.deferredPrompt=e;$('installBtn').classList.remove('hidden');});
