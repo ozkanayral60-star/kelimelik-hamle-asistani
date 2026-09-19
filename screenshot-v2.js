@@ -6,6 +6,7 @@
   const $ = id => document.getElementById(id);
   let sourceImage = null;
   let worker = null;
+  let autoAnalyzeOnSelect = false;
 
   function injectStyles(){
     if(document.getElementById('scanRevisionStyles')) return;
@@ -220,8 +221,17 @@
     }
     cx.putImageData(im,0,0);return cv;
   }
+  function rackLooksLikeJoker(rawCv){
+    const comps=centralComponents(rawCv);
+    // Gerçek rack harflerinin ortada belirgin, uzun bir ana gövdesi vardır.
+    // Joker taşında büyük ana harf yoktur; küçük puan/ikon izleri bu eşiği geçemez.
+    const main=comps.find(c=>c.height>=68&&c.area>=100&&c.width>=5);
+    return !main;
+  }
+
   async function readRack(img,rg,i){
     const raw=cropRack(img,rg,i,'raw');
+    if(rackLooksLikeJoker(raw))return{letter:'*',confidence:100,isJoker:true};
     const iShape=detectTurkishI(raw);if(iShape)return{letter:iShape,confidence:99};
     const variants=[raw,cropRack(img,rg,i,'binary'),thresholdVariant(raw,115),thresholdVariant(raw,155),thresholdVariant(raw,190)];
     const reads=[];
@@ -291,6 +301,7 @@
       sourceImage=img;const prev=$('scanPreview');prev.src=url;prev.classList.add('show');$('analyzeScreenshotBtn').disabled=false;
       $('solveBtn').disabled=true;
       setStatus(`Görüntü hazır: ${img.width} × ${img.height}\nBu görüntü başarıyla aktarılana kadar aşağıdaki eski tahta hamle hesabında kullanılmayacak.`);
+      if(autoAnalyzeOnSelect){autoAnalyzeOnSelect=false;setTimeout(analyze,80);}
     };
     img.onerror=()=>setStatus('Görüntü açılamadı.','error');img.src=url;
   }
@@ -304,6 +315,12 @@
   function init(){
     injectStyles();showPreviousNote();
     const input=$('screenshotInput');if(input)input.addEventListener('change',e=>loadFile(e.target.files&&e.target.files[0]));
+    const latest=$('latestScreenshotBtn');
+    if(latest&&input)latest.addEventListener('click',()=>{
+      autoAnalyzeOnSelect=true;
+      input.value='';
+      input.click();
+    });
     const btn=$('analyzeScreenshotBtn');if(btn)btn.addEventListener('click',analyze);
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
